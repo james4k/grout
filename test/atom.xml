@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+ 
+ <title>Oscar the Grouch</title>
+ <link href="{{.url}}atom.xml" rel="self"/>
+ <link href="{{.url}}"/>
+ <updated>{{.xmltime}}</updated>
+ <id>{{.url}}</id>
+ <author>
+   <name>Oscar the Grouch</name>
+   <email>oscar@the-grouch.com</email>
+ </author>
+
+ {{range .posts}}
+ <entry>
+   <title>{{.title}}</title>
+   <link href="{{.url}}"/>
+   <updated>{{.xmldate}}</updated>
+   <id>{{.atomid}}</id>
+   <content type="html">{{.content | html}}</content>
+ </entry>
+ {{end}}
+
+</feed>

@@ -1,0 +1,24 @@
+---
+layout: default
+title: Oscar the Grouch
+---
+
+<div id="home">
+  <h1>Blog Posts</h1>
+  <ul class="posts">
+	{{range .posts}}
+	<li><span>{{.date}}</span> &raquo; <a href="{{.url}}">{{.title}}</a></li>	
+	{{end}}
+  </ul>
+
+  <h1>Highlighted Talks</h1>
+  <ul class="posts">
+    <li><span>19 Mar 2012</span> &raquo; <a href="http://www.rockcellarmagazine.com/2012/03/19/caroll-spinney/">Interview in Rock Cellar Magazine</a></li>
+    <li><span>11 Oct 2011</span> &raquo; <a href="http://www.youtube.com/watch?v=Ua8DqwbI3Vo">Video: Interview at 2011 AAP National</a></li>
+  </ul>
+
+  <h1>Other Interviews, Talks, Etc</h1>
+  <ul class="posts">
+    <li><span>1970 (Sesame Street, Season 1)</span> &raquo; <a href="http://www.youtube.com/watch?v=Z1SiSUrvUnk">Sesame Street - I Love Trash</a></li>
+  </ul>
+</div>
