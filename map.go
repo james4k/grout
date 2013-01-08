@@ -1,6 +1,7 @@
 package grout
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -16,6 +17,14 @@ func (m M) Map(path string) M {
 
 func (m M) String(path string, def string) string {
 	val, ok := m.get(path).(string)
+	if !ok {
+		return def
+	}
+	return val
+}
+
+func (m M) Int(path string, def int) int {
+	val, ok := m.get(path).(int)
 	if !ok {
 		return def
 	}
@@ -40,4 +49,21 @@ func (m M) get(path string) interface{} {
 		}
 	}
 	return nil
+}
+
+func (m M) sanitize() {
+	for k, v := range m {
+		vmap, ok := v.(map[interface{}]interface{})
+		if !ok {
+			continue
+		}
+
+		newv := make(M, len(vmap))
+		for vk, vv := range vmap {
+			s := fmt.Sprintf("%v", vk)
+			newv[s] = vv
+		}
+		newv.sanitize()
+		m[k] = newv
+	}
 }

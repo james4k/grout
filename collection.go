@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
 type Collectable interface {
 	Content
-	Metadata(data M) M
+	PostRead(data M, collection []Content, i int) error
+	Metadata() M
+	Less(other Collectable) bool
 }
 
 type collection struct {
@@ -35,6 +38,8 @@ func (c *collection) Read(dir string, sitecfg, tmplData M) error {
 	}
 
 	dir = filepath.Join(dir, c.Dir())
+	// FIXME: Probably all be much cleaner if we could work
+	// with a []Collectable instead of a []Content.
 	content := make([]Content, 0, 8)
 	for _, m := range matches {
 		fileinfo, err := os.Stat(m)
@@ -49,7 +54,6 @@ func (c *collection) Read(dir string, sitecfg, tmplData M) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(path)
 
 		con, err := c.generate(sitecfg, c.config, ContentInfo{fileinfo, m, path})
 		if err != nil {
@@ -58,21 +62,34 @@ func (c *collection) Read(dir string, sitecfg, tmplData M) error {
 			}
 			return err
 		}
-		err = con.Read()
+		content = append(content, con)
+	}
+
+	for _, con := range content {
+		err = con.Read(tmplData)
 		if err != nil {
 			return err
 		}
-
-		content = append(content, con)
 	}
-	// TODO: content should be sorted
+	sort.Sort(ContentSlice(content))
+	for i, con := range content {
+		col, ok := con.(Collectable)
+		if !ok {
+			continue
+		}
+		err = col.PostRead(tmplData, content, i)
+		if err != nil {
+			return err
+		}
+	}
+
 	var metadata []M
 	for _, con := range content {
 		col, ok := con.(Collectable)
 		if !ok {
 			continue
 		}
-		metadata = append(metadata, col.Metadata(tmplData))
+		metadata = append(metadata, col.Metadata())
 	}
 	if metadata != nil {
 		tmplData[c.name] = metadata
@@ -81,14 +98,15 @@ func (c *collection) Read(dir string, sitecfg, tmplData M) error {
 	return nil
 }
 
-func (c *collection) Write(dir string, tmplData M) error {
+func (c *collection) Write(dir, cachedir string, tmplData M) error {
 	var err error
+	fmt.Printf("Writing %s...\n", c.name)
 	for _, con := range c.content {
-		fmt.Println(con)
-		err = con.Write(dir, tmplData)
+		err = con.Write(dir, cachedir, tmplData)
 		if err != nil {
 			return err
 		}
 	}
+	fmt.Println("")
 	return nil
 }

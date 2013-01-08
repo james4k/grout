@@ -14,7 +14,7 @@ type HTMLDocument struct {
 	Template    *template.Template
 }
 
-func (d *HTMLDocument) Read() error {
+func (d *HTMLDocument) Read(data M) error {
 	var err error
 	d.FrontMatter = make(M, 8)
 	content, err := fmatter.ReadFile(d.FullPath(), d.FrontMatter)
@@ -26,7 +26,7 @@ func (d *HTMLDocument) Read() error {
 	return err
 }
 
-func (d *HTMLDocument) Write(dir string, data M) error {
+func (d *HTMLDocument) Write(dir, cachedir string, data M) error {
 	newf, err := os.Create(filepath.Join(dir, d.Path()))
 	if err != nil {
 		return err

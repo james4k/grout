@@ -1,6 +1,6 @@
 # Grout
 
-_Under development; is technically usable, but nothing at all is set in stone or considered complete._
+_Under development; is technically usable, but nothing at all is set in stone or considered complete. Basically, this was first built for my own uses and is still ongoing._
 
 Grout is a static site generator written in Go, and yes, inspired by Jekyll. Frankly, this came about because of my lack of Ruby knowledge, and my desire to extend Jekyll.
 

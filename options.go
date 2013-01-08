@@ -1,5 +1,7 @@
 package grout
 
 type Options struct {
-	Verbose bool
+	Verbose   bool
+	HttpHost  string
+	AutoBuild bool
 }

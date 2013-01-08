@@ -11,23 +11,45 @@ import (
 
 type Post struct {
 	*HTMLDocument
-	date    string
-	xmldate string
-	url     string
-	atomid  string
+	datetime time.Time
+	date     string
+	xmldate  string
+	url      string
+	atomid   string
+	metadata M
 }
 
 var postNameRE = regexp.MustCompile(`^([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9A-z\-]+)$`)
 
-func (p *Post) Read() error {
-	err := p.HTMLDocument.Read()
+func (p *Post) Read(data M) error {
+	err := p.HTMLDocument.Read(data)
 	if err != nil {
 		return err
+	}
+
+	buf := bytes.NewBuffer(make([]byte, 0, 512))
+	data["page"] = p.FrontMatter
+	err = p.Template.Execute(buf, data)
+	delete(data, "page")
+	if err != nil {
+		return err
+	}
+	p.metadata = M{
+		"title":   p.FrontMatter["title"],
+		"date":    p.date,
+		"xmldate": p.xmldate,
+		"url":     p.url,
+		"atomid":  p.atomid,
+		"content": string(buf.Bytes()),
 	}
 	return nil
 }
 
-func (p *Post) Write(dir string, data M) error {
+func (p *Post) PostRead(data M, collection []Content, i int) error {
+	return nil
+}
+
+func (p *Post) Write(dir, cachedir string, data M) error {
 	// TODO: ideally we wouldn't Mkdir for every post...but the
 	// OS/filesystem caches probably work well enough.  We'll measure
 	// everything later in any case.
@@ -37,7 +59,7 @@ func (p *Post) Write(dir string, data M) error {
 		return err
 	}
 
-	err = p.HTMLDocument.Write(dir, data)
+	err = p.HTMLDocument.Write(dir, cachedir, data)
 	if err != nil {
 		return err
 	}
@@ -45,23 +67,14 @@ func (p *Post) Write(dir string, data M) error {
 	return err
 }
 
-func (p *Post) Metadata(data M) M {
-	buf := bytes.NewBuffer(make([]byte, 0, 512))
-	data["page"] = p.FrontMatter
-	err := p.Template.Execute(buf, data)
-	delete(data, "page")
-	if err != nil {
-		return M{}
-	}
+func (p *Post) Metadata() M {
+	return p.metadata
+}
 
-	return M{
-		"title":   p.FrontMatter["title"],
-		"date":    p.date,
-		"xmldate": p.xmldate,
-		"url":     p.url,
-		"atomid":  p.atomid,
-		"content": string(buf.Bytes()),
-	}
+func (p *Post) Less(other Collectable) bool {
+	// reverse order
+	otherPost := other.(*Post)
+	return p.datetime.Unix() > otherPost.datetime.Unix()
 }
 
 func GeneratePost(sitecfg, cfg M, info ContentInfo) (Content, error) {
@@ -80,7 +93,8 @@ func GeneratePost(sitecfg, cfg M, info ContentInfo) (Content, error) {
 		info.SetPath(fmt.Sprintf("%s/%s/%s/%s.html",
 			matches[1], matches[2], matches[3], matches[4]))
 
-		baseurl := sitecfg.String("url", "")
+		//baseurl := sitecfg.String("url", "")
+		baseurl := ""
 		url, err := BuildURL(baseurl, info.Path())
 		if err != nil {
 			return nil, err
@@ -100,6 +114,7 @@ func GeneratePost(sitecfg, cfg M, info ContentInfo) (Content, error) {
 
 		return &Post{
 			HTMLDocument: &HTMLDocument{ContentInfo: info},
+			datetime:     datetime,
 			date: fmt.Sprintf("%s-%s-%s",
 				matches[1], matches[2], matches[3]),
 			xmldate: XMLDate(datetime),

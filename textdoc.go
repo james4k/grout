@@ -13,7 +13,7 @@ type TextDocument struct {
 	Template    *template.Template
 }
 
-func (d *TextDocument) Read() error {
+func (d *TextDocument) Read(data M) error {
 	var err error
 	d.FrontMatter = make(M, 8)
 	content, err := fmatter.ReadFile(d.FullPath(), d.FrontMatter)
@@ -25,7 +25,7 @@ func (d *TextDocument) Read() error {
 	return err
 }
 
-func (d *TextDocument) Write(dir string, data M) error {
+func (d *TextDocument) Write(dir, cachedir string, data M) error {
 	newf, err := os.Create(filepath.Join(dir, d.Path()))
 	if err != nil {
 		return err

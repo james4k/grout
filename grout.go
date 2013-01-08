@@ -5,15 +5,12 @@ import (
 	"github.com/james4k/layouts"
 	"io/ioutil"
 	"launchpad.net/goyaml"
+	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 )
-
-func halt(f string, args ...interface{}) {
-	fmt.Printf(f, args...)
-	os.Exit(1)
-}
 
 func Build(input, output string, opt *Options) {
 	if input == "" {
@@ -26,53 +23,53 @@ func Build(input, output string, opt *Options) {
 	b := &builder{Options: opt}
 	err := b.readConfig(input)
 	if err != nil {
-		halt("%v\n", err)
+		log.Fatalf("%v\n", err)
 	}
 
 	content := b.walkFiles(input)
 	layouts.Clear()
 	err = layouts.Glob(filepath.Join(input, "_layouts", "*"))
 	if err != nil {
-		halt("%v\n", err)
-	}
-
-	err = b.readContent(content)
-	if err != nil {
-		halt("read error: %v\n", err)
+		log.Fatalf("%v\n", err)
 	}
 
 	tmplData := b.makeTemplateData()
+	err = b.readContent(content, tmplData)
+	if err != nil {
+		log.Fatalf("read error: %v\n", err)
+	}
+
 	collections := b.makeCollections()
 	err = b.readCollections(input, collections, tmplData)
 	if err != nil {
-		halt("read collections error: %v\n", err)
+		log.Fatalf("read collections error: %v\n", err)
 	}
 
 	tempdir, err := ioutil.TempDir(input, "_tmpsite_")
 	if err != nil {
-		halt("failed to create temp dir: %v\n", err)
+		log.Fatalf("failed to create temp dir: %v\n", err)
 	}
 
-	err = b.writeContent(tempdir, content, tmplData)
+	err = b.writeContent(tempdir, output, content, tmplData)
 	if err != nil {
-		halt("write error: %v\n", err)
+		log.Fatalf("write error: %v\n", err)
 	}
 
-	err = b.writeCollections(tempdir, collections, tmplData)
+	err = b.writeCollections(tempdir, output, collections, tmplData)
 	if err != nil {
-		halt("write collections error: %v\n", err)
+		log.Fatalf("write collections error: %v\n", err)
 	}
 
 	os.Rename(output, tempdir+"_old")
 	err = os.Rename(tempdir, output)
 	if err != nil {
-		halt("%v\n", err)
+		log.Fatalf("%v\n", err)
 	}
 
 	temppattern := filepath.Join(input, "_tmpsite_*")
 	tempmatches, err := filepath.Glob(temppattern)
 	if err != nil {
-		halt("%v\n", err)
+		log.Fatalf("%v\n", err)
 	}
 
 	for _, tmp := range tempmatches {
@@ -82,6 +79,19 @@ func Build(input, output string, opt *Options) {
 			panic("tried to remove unrecognized temp folder!")
 		}
 		os.RemoveAll(tmp)
+	}
+
+	if opt.HttpHost != "" {
+		/*watcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			halt("%v\n", err)
+		}*/
+		fmt.Printf("HTTP server listening on %s\n", opt.HttpHost)
+		http.Handle("/", http.FileServer(http.Dir(filepath.Join(output, ""))))
+		err = http.ListenAndServe(opt.HttpHost, nil)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 }
 
@@ -103,8 +113,8 @@ func (b *builder) readConfig(dir string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%#v\n", m)
 
+	m.sanitize()
 	b.cfg = m
 	return nil
 }
@@ -171,10 +181,10 @@ func (b *builder) walkFiles(basepath string) []Content {
 	return content
 }
 
-func (b *builder) readContent(content []Content) error {
+func (b *builder) readContent(content []Content, tmplData M) error {
 	var err error
 	for _, c := range content {
-		err = c.Read()
+		err = c.Read(tmplData)
 		if err != nil {
 			return err
 		}
@@ -182,10 +192,10 @@ func (b *builder) readContent(content []Content) error {
 	return nil
 }
 
-func (b *builder) writeContent(dir string, content []Content, data M) error {
+func (b *builder) writeContent(dir, cachedir string, content []Content, data M) error {
 	var err error
 	for _, c := range content {
-		err = c.Write(dir, data)
+		err = c.Write(dir, cachedir, data)
 		if err != nil {
 			return err
 		}
@@ -210,9 +220,6 @@ func (b *builder) makeCollections() []collection {
 		if c.generate == nil {
 			continue
 		}
-		if b.Verbose {
-			fmt.Printf("collection: %s\n", name)
-		}
 		collections = append(collections, c)
 	}
 	return collections
@@ -230,11 +237,11 @@ func (b *builder) readCollections(dir string, collections []collection, tmplData
 	return nil
 }
 
-func (b *builder) writeCollections(dir string, collections []collection, data M) error {
+func (b *builder) writeCollections(dir, cachedir string, collections []collection, data M) error {
 	var err error
 	for i := range collections {
 		c := &collections[i]
-		err = c.Write(dir, data)
+		err = c.Write(dir, cachedir, data)
 		if err != nil {
 			return err
 		}
